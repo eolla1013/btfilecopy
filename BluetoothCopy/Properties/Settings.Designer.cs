@@ -25,7 +25,7 @@ namespace BluetoothCopy.Properties {
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("Client")]
+        [global::System.Configuration.DefaultSettingValueAttribute("Server")]
         public string Mode {
             get {
                 return ((string)(this["Mode"]));
@@ -35,9 +35,9 @@ namespace BluetoothCopy.Properties {
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute(".\\archive")]
-        public string ArchivePath {
+        public string ArchiveDirectoryPath {
             get {
-                return ((string)(this["ArchivePath"]));
+                return ((string)(this["ArchiveDirectoryPath"]));
             }
         }
         

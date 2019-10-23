@@ -42,10 +42,16 @@ namespace BluetoothCopy
             this.Logger.Info("End Bluetooth Copy");
             this.ViewModel.DiscoveryComplated += ViewModel_DiscoveryComplated;
             this.ViewModel.ConnectErrored += ViewModel_ConnectErrored;
-            if (this.ViewModel.StartServerCommand.CanExecute()) {
-                this.ViewModel.StartServerCommand.Execute();
+
+            if (this.IsReady()) {
+                if (this.ViewModel.StartServerCommand.CanExecute()) {
+                    this.ViewModel.StartServerCommand.Execute();
+                }
+
+                this.ProcessTimer.Start();
+            } else {
+                MessageBox.Show("環境設定の不備があります。ログを確認してください。", this.Title, MessageBoxButton.OK, MessageBoxImage.Error);
             }
-            this.ProcessTimer.Start();
         }
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e) {
@@ -73,8 +79,28 @@ namespace BluetoothCopy
         }
 
         private void ProcessTimer_Run(object sender, EventArgs e) {
-            this.ViewModel.TickTimerCommand.Execute();
+            if (this.ViewModel.TickTimerCommand.CanExecute()) {
+                this.ViewModel.TickTimerCommand.Execute();
+            }
         }
 
+        private bool IsReady() {
+            if (!System.IO.Directory.Exists(Properties.Settings.Default.SendDirectoryPath)) {
+                this.Logger.Error("送信用フォルダがありません。{0}", Properties.Settings.Default.SendDirectoryPath);
+                return false;
+            }
+            if (!System.IO.Directory.Exists(Properties.Settings.Default.ReceiveDirectoryPath)) {
+                this.Logger.Error("受信用フォルダがありません。{0}", Properties.Settings.Default.ReceiveDirectoryPath);
+                return false;
+            }
+            if (this.ViewModel.IsServerMode()) {
+                if (!System.IO.Directory.Exists(Properties.Settings.Default.ArchiveDirectoryPath)) {
+                    this.Logger.Error("保存用フォルダがありません。{0}", Properties.Settings.Default.ArchiveDirectoryPath);
+                    return false;
+                }
+            }
+
+            return true;
+        }
     }
 }

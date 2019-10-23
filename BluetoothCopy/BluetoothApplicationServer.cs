@@ -25,17 +25,17 @@ namespace BluetoothCopy
         private StreamSocketListener SocketListener;
 
         private Task SendTask;
-        private System.Collections.Concurrent.ConcurrentQueue<string> SendTextQueue;
+        private System.Collections.Concurrent.ConcurrentQueue<BluetoothApplicationTransferData> SendFileQueue;
 
         private Task ReceiveTask;
-        private System.Collections.Concurrent.ConcurrentQueue<string> ReceiveTextQueue;
+        private System.Collections.Concurrent.ConcurrentQueue<BluetoothApplicationTransferData> ReceiveFileQueue;
 
         private bool RunningFlag;
 
         public BluetoothApplicationServer() {
             this.Logger = NLog.LogManager.GetLogger("BluetoothApplicationServer");
-            this.SendTextQueue = new System.Collections.Concurrent.ConcurrentQueue<string>();
-            this.ReceiveTextQueue = new System.Collections.Concurrent.ConcurrentQueue<string>();
+            this.SendFileQueue = new System.Collections.Concurrent.ConcurrentQueue<BluetoothApplicationTransferData>();
+            this.ReceiveFileQueue = new System.Collections.Concurrent.ConcurrentQueue<BluetoothApplicationTransferData>();
             this.RunningFlag = false;
         }
 
@@ -99,81 +99,136 @@ namespace BluetoothCopy
             }
         }
 
-        private void RunReceive() {
-            this.Logger.Info("データ受信処理開始");
+        public void SendFile(string filename) {
+            var fullfilename = System.IO.Path.Combine(Properties.Settings.Default.ReceiveDirectoryPath, filename);
+            var filedata = System.IO.File.ReadAllBytes(fullfilename);
+            var itm = new BluetoothApplicationTransferData(filename, filedata);
+            this.SendFileQueue.Enqueue(itm);
 
-            while (RunningFlag) {
-                try {
-                    var loadop = SocketReader.LoadAsync(sizeof(uint));
-                    while (loadop.Status != Windows.Foundation.AsyncStatus.Completed) {
-                        System.Threading.Thread.Sleep(500);
-                        if (!RunningFlag) {
-                            break;
-                        }
-                    }
-                    if (!RunningFlag) {
-                        break;
-                    }
-                    uint readlen = loadop.GetResults();
-                    this.Logger.Info("データ受信1:" + readlen);
-
-                    if (readlen < sizeof(uint)) {
-                        break;
-                    }
-                    uint datalen = SocketReader.ReadUInt32();
-                    this.Logger.Info("データ受信2:" + datalen);
-
-                    loadop = SocketReader.LoadAsync(datalen);
-                    while (loadop.Status != Windows.Foundation.AsyncStatus.Completed) {
-                        System.Threading.Thread.Sleep(500);
-                        if (!RunningFlag) {
-                            break;
-                        }
-                    }
-                    if (!RunningFlag) {
-                        break;
-                    }
-                    readlen = loadop.GetResults();
-                    this.Logger.Info("データ受信3:" + readlen);
-
-                    if (readlen < datalen) {
-                        break;
-                    }
-                    string message = SocketReader.ReadString(datalen);
-                    this.Logger.Info("データ受信");
-                    this.Logger.Info(message);
-                    this.ReceiveTextQueue.Enqueue(message);
-                } catch (Exception ex) {
-                    this.Logger.Error(ex,"データ受信中にエラー発生！");
-                    break;
-                }
-            }
-
-            this.ConnectStatusChanged?.Invoke(this, new AsyncCompletedEventArgs(null, false, BluetoothApplicationConnectStatus.Disconnect));
+            this.WriteArchiveFile("send",fullfilename);
+            System.IO.File.Delete(fullfilename);
         }
 
         private void RunSend() {
             this.Logger.Info("データ送信処理開始");
             while (RunningFlag) {
                 try {
-                    string msg = "";
-                    var ret = this.SendTextQueue.TryDequeue(out msg);
+                    BluetoothApplicationTransferData send = null;
+                    var ret = this.SendFileQueue.TryDequeue(out send);
                     if (ret) {
-                        this.SendText(msg);
+                        SocketWriter.WriteBytes(send.GetTransferByteStream());
+                        var sendlen = SocketWriter.StoreAsync().GetResults();
+                        this.Logger.Info("データ送信結果:{0}", sendlen);
                     }
-                    System.Threading.Thread.Sleep(500);
+                    System.Threading.Thread.Sleep(1000);
                 } catch (Exception ex) {
                     this.Logger.Error(ex, "データ送信中にエラー発生！");
-                    this.Logger.Error(ex.ToString());
-                    break;
                 }
             }
         }
 
-        public void RequestSendText(string msg) {
-            if (!string.IsNullOrWhiteSpace(msg)) {
-                this.SendTextQueue.Enqueue(msg);
+        public List<string> ReceiveFile() {
+            var lst = new List<string>();
+            while (!this.ReceiveFileQueue.IsEmpty) {
+                BluetoothApplicationTransferData recv = null;
+                var ret = this.ReceiveFileQueue.TryDequeue(out recv);
+                if (ret) {
+                    var filename = System.IO.Path.Combine(Properties.Settings.Default.ReceiveDirectoryPath, recv.Name);
+                    System.IO.File.WriteAllBytes(filename, recv.Data);
+
+                    this.WriteArchiveFile("recv",filename);
+                    lst.Add(recv.Name);
+                }
             }
+
+            return lst;
+        }
+
+        private void RunReceive() {
+            this.Logger.Info("データ受信処理開始");
+
+            while (this.RunningFlag) {
+                try {
+                    //ファイル名の長さ
+                    var loadop = SocketReader.LoadAsync(sizeof(uint));
+                    while (loadop.Status != Windows.Foundation.AsyncStatus.Completed) {
+                        System.Threading.Thread.Sleep(500);
+                        if (!this.RunningFlag) {
+                            break;
+                        }
+                    }
+                    if (!this.RunningFlag) {
+                        break;
+                    }
+                    uint size = loadop.GetResults();
+                    if (size < sizeof(uint)) {
+                        break;
+                    }
+                    uint filenamelen = SocketReader.ReadUInt32();
+
+                    //ファイル名のデータ
+                    loadop = SocketReader.LoadAsync(filenamelen);
+                    while (loadop.Status != Windows.Foundation.AsyncStatus.Completed) {
+                        System.Threading.Thread.Sleep(500);
+                        if (!this.RunningFlag) {
+                            break;
+                        }
+                    }
+                    if (!this.RunningFlag) {
+                        break;
+                    }
+                    size = loadop.GetResults();
+                    if (size != filenamelen) {
+                        break;
+                    }
+                    byte[] recvfilename = new byte[filenamelen];
+                    SocketReader.ReadBytes(recvfilename);
+                    string filename = System.Text.Encoding.UTF8.GetString(recvfilename);
+
+                    //ファイルのデータ長
+                    loadop = SocketReader.LoadAsync(filenamelen);
+                    while (loadop.Status != Windows.Foundation.AsyncStatus.Completed) {
+                        System.Threading.Thread.Sleep(500);
+                        if (!this.RunningFlag) {
+                            break;
+                        }
+                    }
+                    if (!this.RunningFlag) {
+                        break;
+                    }
+                    size = loadop.GetResults();
+                    if (size < sizeof(uint)) {
+                        break;
+                    }
+                    uint filedatalen = SocketReader.ReadUInt32();
+
+                    //ファイルのデータ
+                    loadop = SocketReader.LoadAsync(filenamelen);
+                    while (loadop.Status != Windows.Foundation.AsyncStatus.Completed) {
+                        System.Threading.Thread.Sleep(500);
+                        if (!this.RunningFlag) {
+                            break;
+                        }
+                    }
+                    if (!this.RunningFlag) {
+                        break;
+                    }
+                    size = loadop.GetResults();
+                    if (size != filedatalen) {
+                        break;
+                    }
+                    byte[] recvfiledata = new byte[filedatalen];
+                    SocketReader.ReadBytes(recvfilename);
+
+                    var recv = new BluetoothApplicationTransferData(filename, recvfiledata);
+                    this.Logger.Info("データ受信結果:{0},{1}", recv.Name, recv.Data.Length);
+                    this.ReceiveFileQueue.Enqueue(recv);
+                } catch (Exception ex) {
+                    this.Logger.Error(ex, "データ通信中にエラー発生！");
+                    break;
+                }
+            }
+            this.ConnectStatusChanged?.Invoke(this, new AsyncCompletedEventArgs(null, false, BluetoothApplicationConnectStatus.Disconnect));
         }
 
         public void Stop() {
@@ -218,29 +273,15 @@ namespace BluetoothCopy
             }
         }
 
-        private async void SendText(string msg) {
-            try {
-                this.Logger.Info("テキスト送信開始");
-
-                //SocketWriter.WriteUInt32((uint)msg.Length);
-                //SocketWriter.WriteString(msg);
-
-                var senddata = System.Text.Encoding.UTF8.GetBytes(msg);
-                SocketWriter.WriteUInt32((uint)senddata.Length);
-                SocketWriter.WriteBytes(senddata);
-
-                await SocketWriter.StoreAsync();
-
-                this.Logger.Info("テキスト送信完了");
-            } catch (Exception ex) {
-                this.Logger.Error(ex, "データ送信中にエラー発生！");
-                this.Logger.Error(ex.ToString());
-            }
-        }
-
         public bool IsRunning() {
             return this.RunningFlag;
         }
 
+        private void WriteArchiveFile(string prefix,string filename) {
+            var file = new System.IO.FileInfo(filename);
+            var arcfilename = $"{DateTime.Now.ToString("yyyyMMddhhmmssfff")}_{prefix}_{file.Name}.bak";
+            var arcfullname = System.IO.Path.Combine(Properties.Settings.Default.ArchiveDirectoryPath, arcfilename);
+            System.IO.File.Copy(filename, arcfullname);
+        }
     }
 }

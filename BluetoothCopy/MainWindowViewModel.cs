@@ -59,6 +59,8 @@ namespace BluetoothCopy
             }
         }
 
+        private NLog.Logger Logger;
+
         public event AsyncCompletedEventHandler DiscoveryComplated;
         public event AsyncCompletedEventHandler ConnectErrored;
         public DelegateCommand ConnectInputDeviceCommand { get; private set; }
@@ -76,6 +78,7 @@ namespace BluetoothCopy
             this._RecvFileLogText = "";
             this._DeviceList = new ObservableCollection<KeyValuePair<string, string>>();
             this._SelectedDevice = null;
+            this.Logger = NLog.LogManager.GetLogger("MainWindow");
 
             this.TickTimerCommand = new DelegateCommand(TickTimer, CanTickTimer);
             this.StartServerCommand = new DelegateCommand(StartServer, CanStartServer);
@@ -96,14 +99,43 @@ namespace BluetoothCopy
         }
 
         private void TickTimer() {
-
+            if (this.IsClientMode()) {
+                foreach (var filename in System.IO.Directory.GetFiles(Properties.Settings.Default.SendDirectoryPath)) {
+                    var file = new System.IO.FileInfo(filename);
+                    try {
+                        this.Client.SendFile(file.Name);
+                    } catch (Exception ex) {
+                        this.Logger.Error(ex, "ファイルの送信に失敗しました。{0}", filename);
+                    }
+                }
+                try {
+                    var filename = this.Client.ReceiveFile();
+                } catch (Exception ex) {
+                    this.Logger.Error(ex, "ファイルの受信に失敗しました。");
+                }
+            }
+            if (this.IsServerMode()) {
+                foreach (var filename in System.IO.Directory.GetFiles(Properties.Settings.Default.SendDirectoryPath)) {
+                    var file = new System.IO.FileInfo(filename);
+                    try {
+                        this.Server.SendFile(file.Name);
+                    } catch (Exception ex) {
+                        this.Logger.Error(ex, "ファイルの送信に失敗しました。{0}", filename);
+                    }
+                }
+                try {
+                    var filename = this.Server.ReceiveFile();
+                } catch (Exception ex) {
+                    this.Logger.Error(ex, "ファイルの受信に失敗しました。");
+                }
+            }
         }
 
         private bool CanTickTimer() {
             return true;
         }
 
-        private bool IsServerMode() {
+        public bool IsServerMode() {
             if (Properties.Settings.Default.Mode.ToLower() == "server") {
                 return true;
             } else {
@@ -128,12 +160,12 @@ namespace BluetoothCopy
         }
 
         private void Server_ConnectStatusChanged(object sender, AsyncCompletedEventArgs e) {
-            if (e.UserState.ToString().ToLower() == "Errored") {
-                this.ConnectErrored.Invoke(this, e);
+            if ((BluetoothApplicationConnectStatus)e.UserState == BluetoothApplicationConnectStatus.Error) {
+                this.ConnectErrored?.Invoke(this, e);
             }
         }
 
-        private bool IsClientMode() {
+        public bool IsClientMode() {
             if (Properties.Settings.Default.Mode.ToLower() == "client") {
                 return true;
             } else {
@@ -142,7 +174,6 @@ namespace BluetoothCopy
         }
 
         private void ConnectInputDevice() {
-            Console.WriteLine("入力デバイスの接続開始");
 
             if (!this.SelectedDevice.HasValue) {
                 this.Client.Discovery();
@@ -165,7 +196,7 @@ namespace BluetoothCopy
 
         private void Client_ConnectStatusChanged(object sender, AsyncCompletedEventArgs e) {
             if ((BluetoothApplicationConnectStatus)e.UserState == BluetoothApplicationConnectStatus.Error) {
-                this.ConnectErrored.Invoke(this, e);
+                this.ConnectErrored?.Invoke(this, e);
             }
         }
 
