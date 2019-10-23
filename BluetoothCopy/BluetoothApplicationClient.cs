@@ -15,7 +15,7 @@ namespace BluetoothCopy
 {
     class BluetoothApplicationClient
     {
-        private readonly Guid RfcommChatServiceUuid = Guid.Parse("34B1CF4D-1069-4AD6-89B6-E161D79BE4D8");
+        private readonly Guid RfcommServiceUuid = Guid.Parse("34B1CF4D-1069-4AD6-89B6-E161D79BE4D8");
 
         public event AsyncCompletedEventHandler ConnectStatusChanged;
 
@@ -183,7 +183,7 @@ namespace BluetoothCopy
 
             try {
                 SelectedDevice = await BluetoothDevice.FromIdAsync(this.SelectedDeviceInfo.Id);
-                var rfcommsrv = await SelectedDevice.GetRfcommServicesForIdAsync(RfcommServiceId.FromUuid(RfcommChatServiceUuid), BluetoothCacheMode.Uncached);
+                var rfcommsrv = await SelectedDevice.GetRfcommServicesForIdAsync(RfcommServiceId.FromUuid(RfcommServiceUuid), BluetoothCacheMode.Uncached);
                 RfcommService = rfcommsrv.Services[0];
                 var attributes = await RfcommService.GetSdpRawAttributesAsync();
                 var attributereader = DataReader.FromBuffer(attributes[0x100]);
@@ -207,13 +207,18 @@ namespace BluetoothCopy
             }
         }
 
-        public void SendFile(string filename) {
-            var fullfilename = System.IO.Path.Combine(Properties.Settings.Default.ReceiveDirectoryPath, filename);
-            var filedata = System.IO.File.ReadAllBytes(fullfilename);
-            var itm = new BluetoothApplicationTransferData(filename, filedata);
-            this.SendFileQueue.Enqueue(itm);
-
-            System.IO.File.Delete(fullfilename);
+        public void SendFile(List<string> filelst) {
+            foreach (var filename in filelst) {
+                try {
+                    var file = new System.IO.FileInfo(filename);
+                    var filedata = System.IO.File.ReadAllBytes(filename);
+                    var send = new BluetoothApplicationTransferData(file.Name, filedata);
+                    this.SendFileQueue.Enqueue(send);
+                    System.IO.File.Delete(filename);
+                } catch (Exception ex) {
+                    this.Logger.Error(ex, "送信ファイル読み込み失敗。{0}",filename);
+                }
+            }
         }
 
         private void RunSend() {
@@ -223,7 +228,11 @@ namespace BluetoothCopy
                     BluetoothApplicationTransferData send = null;
                     var ret = this.SendFileQueue.TryDequeue(out send);
                     if (ret) {
-                        SocketWriter.WriteBytes(send.GetTransferByteStream());
+                        var senddata = send.GetTransferByteStream();
+
+                        SocketWriter.WriteUInt32((uint)senddata.Length);
+                        SocketWriter.WriteBytes(senddata);
+
                         var sendlen=SocketWriter.StoreAsync().GetResults();
                         this.Logger.Info("データ送信結果:{0}",sendlen);
                     }
@@ -255,7 +264,7 @@ namespace BluetoothCopy
 
             while (this.RunningFlag) {
                 try {
-                    //ファイル名の長さ
+                    //受信データ長
                     var loadop = SocketReader.LoadAsync(sizeof(uint));
                     while (loadop.Status != Windows.Foundation.AsyncStatus.Completed) {
                         System.Threading.Thread.Sleep(500);
@@ -270,10 +279,10 @@ namespace BluetoothCopy
                     if (size < sizeof(uint)) {
                         break;
                     }
-                    uint filenamelen = SocketReader.ReadUInt32();
+                    uint recvsize = SocketReader.ReadUInt32();
 
                     //ファイル名のデータ
-                    loadop = SocketReader.LoadAsync(filenamelen);
+                    loadop = SocketReader.LoadAsync(recvsize);
                     while (loadop.Status != Windows.Foundation.AsyncStatus.Completed) {
                         System.Threading.Thread.Sleep(500);
                         if (!this.RunningFlag) {
@@ -284,49 +293,13 @@ namespace BluetoothCopy
                         break;
                     }
                     size = loadop.GetResults();
-                    if (size != filenamelen) {
+                    if (size != recvsize) {
                         break;
                     }
-                    byte[] recvfilename=new byte[filenamelen];
-                    SocketReader.ReadBytes(recvfilename);
-                    string filename = System.Text.Encoding.UTF8.GetString(recvfilename);
+                    byte[] recvdata = new byte[recvsize];
+                    SocketReader.ReadBytes(recvdata);
 
-                    //ファイルのデータ長
-                    loadop = SocketReader.LoadAsync(filenamelen);
-                    while (loadop.Status != Windows.Foundation.AsyncStatus.Completed) {
-                        System.Threading.Thread.Sleep(500);
-                        if (!this.RunningFlag) {
-                            break;
-                        }
-                    }
-                    if (!this.RunningFlag) {
-                        break;
-                    }
-                    size = loadop.GetResults();
-                    if (size < sizeof(uint)) {
-                        break;
-                    }
-                    uint filedatalen = SocketReader.ReadUInt32();
-
-                    //ファイルのデータ
-                    loadop = SocketReader.LoadAsync(filenamelen);
-                    while (loadop.Status != Windows.Foundation.AsyncStatus.Completed) {
-                        System.Threading.Thread.Sleep(500);
-                        if (!this.RunningFlag) {
-                            break;
-                        }
-                    }
-                    if (!this.RunningFlag) {
-                        break;
-                    }
-                    size = loadop.GetResults();
-                    if (size != filedatalen) {
-                        break;
-                    }
-                    byte[] recvfiledata = new byte[filedatalen];
-                    SocketReader.ReadBytes(recvfilename);
-
-                    var recv = new BluetoothApplicationTransferData(filename, recvfiledata);
+                    var recv = new BluetoothApplicationTransferData(recvdata);
                     this.Logger.Info("データ受信結果:{0},{1}",recv.Name,recv.Data.Length);
                     this.ReceiveFileQueue.Enqueue(recv);
                 } catch (Exception ex) {

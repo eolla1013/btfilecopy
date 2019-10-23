@@ -100,13 +100,11 @@ namespace BluetoothCopy
 
         private void TickTimer() {
             if (this.IsClientMode()) {
-                foreach (var filename in System.IO.Directory.GetFiles(Properties.Settings.Default.SendDirectoryPath)) {
-                    var file = new System.IO.FileInfo(filename);
-                    try {
-                        this.Client.SendFile(file.Name);
-                    } catch (Exception ex) {
-                        this.Logger.Error(ex, "ファイルの送信に失敗しました。{0}", filename);
-                    }
+                try {
+                    var lst = System.IO.Directory.GetFiles(Properties.Settings.Default.SendDirectoryPath);
+                    this.Client.SendFile(lst.ToList());
+                } catch (Exception ex) {
+                    this.Logger.Error(ex, "ファイルの送信に失敗しました。");
                 }
                 try {
                     var filename = this.Client.ReceiveFile();
@@ -115,13 +113,11 @@ namespace BluetoothCopy
                 }
             }
             if (this.IsServerMode()) {
-                foreach (var filename in System.IO.Directory.GetFiles(Properties.Settings.Default.SendDirectoryPath)) {
-                    var file = new System.IO.FileInfo(filename);
-                    try {
-                        this.Server.SendFile(file.Name);
-                    } catch (Exception ex) {
-                        this.Logger.Error(ex, "ファイルの送信に失敗しました。{0}", filename);
-                    }
+                try {
+                    var lst = System.IO.Directory.GetFiles(Properties.Settings.Default.SendDirectoryPath);
+                    this.Server.SendFile(lst.ToList());
+                } catch (Exception ex) {
+                    this.Logger.Error(ex, "ファイルの送信に失敗しました。");
                 }
                 try {
                     var filename = this.Server.ReceiveFile();

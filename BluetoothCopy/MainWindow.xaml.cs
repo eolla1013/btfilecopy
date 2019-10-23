@@ -102,5 +102,16 @@ namespace BluetoothCopy
 
             return true;
         }
+
+        private void Test() {
+            var srcfilename = System.IO.Path.Combine(Properties.Settings.Default.SendDirectoryPath, "テスト文書.pdf");
+            var srcfile = new System.IO.FileInfo(srcfilename);
+            var filedata = System.IO.File.ReadAllBytes(srcfilename);
+            var senddata = new BluetoothApplicationTransferData(srcfile.Name, filedata);
+            var stream = senddata.GetTransferByteStream();
+            var recvdata = new BluetoothApplicationTransferData(stream);
+            var destfilename = System.IO.Path.Combine(Properties.Settings.Default.ReceiveDirectoryPath, recvdata.Name);
+            System.IO.File.WriteAllBytes(destfilename, recvdata.Data);
+        }
     }
 }
