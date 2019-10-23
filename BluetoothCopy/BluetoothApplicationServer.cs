@@ -104,10 +104,11 @@ namespace BluetoothCopy
                 try {
                     var file = new System.IO.FileInfo(filename);
                     var filedata = System.IO.File.ReadAllBytes(filename);
-                    var send = new BluetoothApplicationTransferData(file.Name, filedata);
-                    this.SendFileQueue.Enqueue(send);
                     this.WriteArchiveFile("send", filename);
                     System.IO.File.Delete(filename);
+
+                    var send = new BluetoothApplicationTransferData(file.Name, filedata);
+                    this.SendFileQueue.Enqueue(send);
                 } catch (Exception ex) {
                     this.Logger.Error(ex, "送信ファイル読み込み失敗。{0}", filename);
                 }
