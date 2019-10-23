@@ -15,9 +15,9 @@ namespace BluetoothCopy
 {
     class BluetoothApplicationClient
     {
-        public event PropertyChangedEventHandler ReceiveTextChanged;
-
         private readonly Guid RfcommChatServiceUuid = Guid.Parse("34B1CF4D-1069-4AD6-89B6-E161D79BE4D8");
+
+        public event AsyncCompletedEventHandler ConnectStatusChanged;
 
         private DeviceWatcher DeviceWatcher;
         private List<DeviceInformation> KnownDeviceList;
@@ -193,16 +193,15 @@ namespace BluetoothCopy
                 this.RunningFlag = true;
 
                 this.ReceiveTask = Task.Run(() => { this.RunReceive(); });
-
+                this.ConnectStatusChanged?.Invoke(this, new AsyncCompletedEventArgs(null, false, BluetoothApplicationConnectStatus.Connect));
             } catch (Exception ex) {
                 this.Logger.Error(ex,"入力デバイスへの接続失敗");
-                this.ReceiveTextChanged?.Invoke("STS入力デバイスへの接続失敗", new PropertyChangedEventArgs("ReceiveText"));
+                this.ConnectStatusChanged?.Invoke(this, new AsyncCompletedEventArgs(null, false, BluetoothApplicationConnectStatus.Error));
             }
         }
 
         private void RunReceive() {
             this.Logger.Info("データ受信開始");
-            this.ReceiveTextChanged?.Invoke("STS入力デバイスに接続しました。", new PropertyChangedEventArgs("ReceiveText"));
 
             while (this.RunningFlag) {
                 try {
@@ -247,13 +246,12 @@ namespace BluetoothCopy
                     this.Logger.Info("データ受信");
                     this.Logger.Info(message);
                     this.ReceiveTextQueue.Enqueue(message);
-                    this.ReceiveTextChanged?.Invoke(message, new PropertyChangedEventArgs("ReceiveText"));
                 } catch (Exception ex) {
                     this.Logger.Error(ex,"データ通信中にエラー発生！");
-                    this.ReceiveTextChanged?.Invoke("STSデータ通信中にエラー発生！", new PropertyChangedEventArgs("ReceiveText"));
                     break;
                 }
             }
+            this.ConnectStatusChanged?.Invoke(this, new AsyncCompletedEventArgs(null, false, BluetoothApplicationConnectStatus.Disconnect));
         }
 
         public bool IsRunning() {

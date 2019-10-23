@@ -41,6 +41,7 @@ namespace BluetoothCopy
         private void Window_Loaded(object sender, RoutedEventArgs e) {
             this.Logger.Info("End Bluetooth Copy");
             this.ViewModel.DiscoveryComplated += ViewModel_DiscoveryComplated;
+            this.ViewModel.ConnectErrored += ViewModel_ConnectErrored;
             if (this.ViewModel.StartServerCommand.CanExecute()) {
                 this.ViewModel.StartServerCommand.Execute();
             }
@@ -56,6 +57,7 @@ namespace BluetoothCopy
             if (this.ViewModel.StopServerCommand.CanExecute()) {
                 this.ViewModel.StopServerCommand.Execute();
             }
+            this.ViewModel.ConnectErrored -= ViewModel_ConnectErrored;
             this.ViewModel.DiscoveryComplated -= ViewModel_DiscoveryComplated;
             this.Logger.Info("End Bluetooth Copy");
         }
@@ -64,6 +66,10 @@ namespace BluetoothCopy
             var dialog = new SelectedListDialog();
             dialog.DataContext = sender;
             dialog.ShowDialog();
+        }
+
+        private void ViewModel_ConnectErrored(object sender, System.ComponentModel.AsyncCompletedEventArgs e) {
+            MessageBox.Show("Bluetooth機器への接続に失敗しました。", this.Title, MessageBoxButton.OK, MessageBoxImage.Error);
         }
 
         private void ProcessTimer_Run(object sender, EventArgs e) {

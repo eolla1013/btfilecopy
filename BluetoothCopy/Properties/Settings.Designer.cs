@@ -25,7 +25,7 @@ namespace BluetoothCopy.Properties {
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("Server")]
+        [global::System.Configuration.DefaultSettingValueAttribute("Client")]
         public string Mode {
             get {
                 return ((string)(this["Mode"]));

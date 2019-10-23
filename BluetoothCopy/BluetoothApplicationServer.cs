@@ -13,8 +13,7 @@ namespace BluetoothCopy
 {
     class BluetoothApplicationServer
     {
-        public event PropertyChangedEventHandler StatusMessageChanged;
-        public event AsyncCompletedEventHandler ClientConnectStatusChanged;
+        public event AsyncCompletedEventHandler ConnectStatusChanged;
 
         private readonly Guid RfcommChatServiceUuid = Guid.Parse("34B1CF4D-1069-4AD6-89B6-E161D79BE4D8");
         private const string SdpServiceName = "Bluetooth Rfcomm Voice Input Service";
@@ -54,7 +53,6 @@ namespace BluetoothCopy
             RfcommProvider.StartAdvertising(SocketListener, true);
 
             this.Logger.Info("サーバ起動");
-            this.StatusMessageChanged?.Invoke("接続待ち", new PropertyChangedEventArgs("StatusMessage"));
         }
 
         private void InitializeServiceSdpAttributes(RfcommServiceProvider rfcommProvider) {
@@ -94,8 +92,7 @@ namespace BluetoothCopy
                 this.ReceiveTask = Task.Run(() => { this.RunReceive(); });
                 this.SendTask = Task.Run(() => { this.RunSend(); });
 
-                this.StatusMessageChanged?.Invoke("クライアント接続中", new PropertyChangedEventArgs("StatusMessage"));
-                this.ClientConnectStatusChanged?.Invoke(this, new AsyncCompletedEventArgs(null, false, "Connected"));
+                this.ConnectStatusChanged?.Invoke(this, new AsyncCompletedEventArgs(null, false, BluetoothApplicationConnectStatus.Connect));
             } catch (Exception ex) {
                 this.Logger.Error(ex,"クライアント接続中にエラー発生！");
                 this.Logger.Error(ex.ToString());
@@ -148,13 +145,11 @@ namespace BluetoothCopy
                     this.ReceiveTextQueue.Enqueue(message);
                 } catch (Exception ex) {
                     this.Logger.Error(ex,"データ受信中にエラー発生！");
-                    this.Logger.Error(ex.ToString());
                     break;
                 }
             }
 
-            this.StatusMessageChanged?.Invoke("接続待ち", new PropertyChangedEventArgs("StatusMessage"));
-            this.ClientConnectStatusChanged?.Invoke(this, new AsyncCompletedEventArgs(null, false, "Disconnected"));
+            this.ConnectStatusChanged?.Invoke(this, new AsyncCompletedEventArgs(null, false, BluetoothApplicationConnectStatus.Disconnect));
         }
 
         private void RunSend() {
@@ -189,7 +184,6 @@ namespace BluetoothCopy
             Disconnect();
 
             this.Logger.Info("サーバ終了");
-            this.StatusMessageChanged?.Invoke("サーバ停止", new PropertyChangedEventArgs("StatusMessage"));
         }
 
         private void Disconnect() {
