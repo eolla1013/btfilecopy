@@ -5,8 +5,27 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:BluetoothCopy"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        Title="BluetoothCopy" Height="480" Width="640" FontSize="20"
+        Loaded="Window_Loaded" Closing="Window_Closing" Closed="Window_Closed">
+    <Window.DataContext>
+        <local:MainWindowViewModel />
+    </Window.DataContext>
     <Grid>
-        
+        <Grid.RowDefinitions>
+            <RowDefinition Height="1*"/>
+            <RowDefinition Height="3*"/>
+            <RowDefinition Height="3*"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition/>
+        </Grid.ColumnDefinitions>
+        <Label Content="{Binding RunModeMessage}" Grid.Column="0" Grid.Row="0" HorizontalAlignment="Left" Margin="10,10,0,0" VerticalAlignment="Top" Width="400" Height="40"/>
+        <Button Content="接続" HorizontalAlignment="Left" Grid.Column="0" Grid.Row="0" Margin="540,10,0,0" VerticalAlignment="Top" Width="80" Height="40" Command="{Binding ConnectInputDeviceCommand, Mode=OneWay}"/>
+        <TextBox Grid.Column="0" Grid.Row="1" HorizontalAlignment="Left" Margin="10,40,5,5" TextWrapping="Wrap" VerticalAlignment="Top" Width="600" Height="140"
+                 AcceptsReturn="True" VerticalScrollBarVisibility="Auto" IsReadOnly="True" Text="{Binding SendFileLogText,UpdateSourceTrigger=PropertyChanged}"/>
+        <TextBox Grid.Column="0" Grid.Row="2" HorizontalAlignment="Left" Margin="10,40,5,5" TextWrapping="Wrap" VerticalAlignment="Top" Width="600" Height="140"
+                 AcceptsReturn="True" VerticalScrollBarVisibility="Auto" IsReadOnly="True" Text="{Binding RecvFileLogText,UpdateSourceTrigger=PropertyChanged}"/>
+        <Label Content="送信状況" Grid.Column="0" Grid.Row="1" HorizontalAlignment="Left" Margin="5,0,0,0" VerticalAlignment="Top" Width="90" Height="35"/>
+        <Label Content="受信状況" Grid.Column="0" Grid.Row="2" HorizontalAlignment="Left" Margin="5,0,0,0" VerticalAlignment="Top" Width="90" Height="35"/>
     </Grid>
 </Window>
