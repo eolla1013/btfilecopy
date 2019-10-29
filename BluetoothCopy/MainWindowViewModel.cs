@@ -31,11 +31,15 @@ namespace BluetoothCopy
             set { this.SetProperty(ref _RunModeMessage, value); }
         }
 
+        private List<string> SendFileNameList;
+
         private string _SendFileLogText;
         public string SendFileLogText {
             get { return _SendFileLogText; }
             set { this.SetProperty(ref _SendFileLogText, value); }
         }
+
+        private List<string> RecvFileNameList;
 
         private string _RecvFileLogText;
         public string RecvFileLogText {
@@ -74,7 +78,9 @@ namespace BluetoothCopy
         private BluetoothApplicationClient Client { get; set; }
 
         public MainWindowViewModel() {
+            this.SendFileNameList = new List<string>();
             this._SendFileLogText = "";
+            this.RecvFileNameList = new List<string>();
             this._RecvFileLogText = "";
             this._DeviceList = new ObservableCollection<KeyValuePair<string, string>>();
             this._SelectedDevice = null;
@@ -101,30 +107,60 @@ namespace BluetoothCopy
         private void TickTimer() {
             if (this.IsClientMode()) {
                 try {
-                    var lst = System.IO.Directory.GetFiles(Properties.Settings.Default.SendDirectoryPath);
-                    this.Client.SendFile(lst.ToList());
+                    var lst=this.Client.SendFile();
+                    this.DisplaySendFileName(lst);
                 } catch (Exception ex) {
                     this.Logger.Error(ex, "ファイルの送信に失敗しました。");
                 }
                 try {
-                    var filename = this.Client.ReceiveFile();
+                    var lst = this.Client.ReceiveFile();
+                    this.DisplayRecvFileName(lst);
                 } catch (Exception ex) {
                     this.Logger.Error(ex, "ファイルの受信に失敗しました。");
                 }
             }
             if (this.IsServerMode()) {
                 try {
-                    var lst = System.IO.Directory.GetFiles(Properties.Settings.Default.SendDirectoryPath);
-                    this.Server.SendFile(lst.ToList());
+                    var lst=this.Server.SendFile();
+                    this.DisplaySendFileName(lst);
                 } catch (Exception ex) {
                     this.Logger.Error(ex, "ファイルの送信に失敗しました。");
                 }
                 try {
-                    var filename = this.Server.ReceiveFile();
+                    var lst = this.Server.ReceiveFile();
+                    this.DisplayRecvFileName(lst);
                 } catch (Exception ex) {
                     this.Logger.Error(ex, "ファイルの受信に失敗しました。");
                 }
             }
+        }
+
+        private void DisplaySendFileName(List<string> lst) {
+            foreach (var name in lst) {
+                if (this.SendFileNameList.Count > 100) {
+                    this.SendFileNameList.RemoveAt(0);
+                }
+                this.SendFileNameList.Add(string.Format("{0:yyyy-MM-dd HH:mm:ss} {1}",DateTime.Now,name));
+            }
+            var txt = new StringBuilder();
+            foreach (var name in this.SendFileNameList) {
+                txt.AppendLine(name);
+            }
+            this.SendFileLogText = txt.ToString();
+        }
+
+        private void DisplayRecvFileName(List<string> lst) {
+            foreach (var name in lst) {
+                if (this.RecvFileNameList.Count > 100) {
+                    this.RecvFileNameList.RemoveAt(0);
+                }
+                this.RecvFileNameList.Add(string.Format("{0:yyyy-MM-dd HH:mm:ss} {1}", DateTime.Now, name));
+            }
+            var txt = new StringBuilder();
+            foreach (var name in this.RecvFileNameList) {
+                txt.AppendLine(name);
+            }
+            this.RecvFileLogText = txt.ToString();
         }
 
         private bool CanTickTimer() {

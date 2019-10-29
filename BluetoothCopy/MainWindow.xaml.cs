@@ -39,7 +39,7 @@ namespace BluetoothCopy
         }
 
         private void Window_Loaded(object sender, RoutedEventArgs e) {
-            this.Logger.Info("End Bluetooth Copy");
+            this.Logger.Info("Start Bluetooth Copy");
             this.ViewModel.DiscoveryComplated += ViewModel_DiscoveryComplated;
             this.ViewModel.ConnectErrored += ViewModel_ConnectErrored;
 

@@ -99,7 +99,9 @@ namespace BluetoothCopy
             }
         }
 
-        public void SendFile(List<string> filelst) {
+        public List<string> SendFile() {
+            var filelst = System.IO.Directory.GetFiles(Properties.Settings.Default.SendDirectoryPath);
+            var sendlst = new List<string>();
             foreach (var filename in filelst) {
                 try {
                     var file = new System.IO.FileInfo(filename);
@@ -109,10 +111,12 @@ namespace BluetoothCopy
 
                     var send = new BluetoothApplicationTransferData(file.Name, filedata);
                     this.SendFileQueue.Enqueue(send);
+                    sendlst.Add(file.Name);
                 } catch (Exception ex) {
                     this.Logger.Error(ex, "送信ファイル読み込み失敗。{0}", filename);
                 }
             }
+            return sendlst;
         }
 
         private void RunSend() {
