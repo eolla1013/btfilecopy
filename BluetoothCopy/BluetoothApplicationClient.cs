@@ -238,8 +238,14 @@ namespace BluetoothCopy
                         SocketWriter.WriteUInt32((uint)senddata.Length);
                         SocketWriter.WriteBytes(senddata);
 
-                        var sendlen=SocketWriter.StoreAsync().GetResults();
-                        this.Logger.Info("データ送信結果:{0}",sendlen);
+                        //var sendlen=SocketWriter.StoreAsync().GetResults();
+                        var tsk = SocketWriter.StoreAsync();
+                        while (tsk.Status == Windows.Foundation.AsyncStatus.Started) {
+                            System.Threading.Thread.Sleep(500);
+                        }
+                        var sendlen = tsk.GetResults();
+
+                        this.Logger.Info("データ送信結果:{0},{1}",send.Name,sendlen);
                     }
                     System.Threading.Thread.Sleep(1000);
                 } catch (Exception ex) {
