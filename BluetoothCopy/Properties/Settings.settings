@@ -14,5 +14,8 @@
     <Setting Name="ReceiveDirectoryPath" Type="System.String" Scope="Application">
       <Value Profile="(Default)">.\recv</Value>
     </Setting>
+    <Setting Name="AutoConnectDevice" Type="System.String" Scope="Application">
+      <Value Profile="(Default)" />
+    </Setting>
   </Settings>
 </SettingsFile>

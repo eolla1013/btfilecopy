@@ -67,7 +67,7 @@ namespace BluetoothCopy
 
         public event AsyncCompletedEventHandler DiscoveryComplated;
         public event AsyncCompletedEventHandler ConnectErrored;
-        public DelegateCommand ConnectInputDeviceCommand { get; private set; }
+        public DelegateCommand StartClientCommand { get; private set; }
 
         public DelegateCommand TickTimerCommand { get; private set; }
 
@@ -89,7 +89,7 @@ namespace BluetoothCopy
             this.TickTimerCommand = new DelegateCommand(TickTimer, CanTickTimer);
             this.StartServerCommand = new DelegateCommand(StartServer, CanStartServer);
             this.StopServerCommand = new DelegateCommand(StopServer, CanStopServer);
-            this.ConnectInputDeviceCommand = new DelegateCommand(this.ConnectInputDevice, this.CanConnectInputDevice);
+            this.StartClientCommand = new DelegateCommand(this.StartClient, this.CanStartClient);
 
             if (this.IsServerMode()) {
                 this.RunModeMessage = "現在サーバモードで動作しています。";
@@ -106,6 +106,16 @@ namespace BluetoothCopy
 
         private void TickTimer() {
             if (this.IsClientMode()) {
+                try {
+                    if (!this.Client.IsRunning() && !this.Client.IsStarting()) {
+                        this.StopClient();
+                        this.StartClient();
+                        return;//再接続時はいったん抜けて次のタイミングで実行
+                    }
+                } catch (Exception ex) {
+                    this.Logger.Error(ex, "再接続に失敗しました。");
+                    return;
+                }
                 try {
                     var lst=this.Client.SendFile();
                     this.DisplaySendFileName(lst);
@@ -205,10 +215,19 @@ namespace BluetoothCopy
             }
         }
 
-        private void ConnectInputDevice() {
+        public bool IsAutoConnect() {
+            if (string.IsNullOrWhiteSpace(Properties.Settings.Default.AutoConnectDevice)) {
+                return false;
+            } else {
+                return true;
+            }
+        }
+
+        private void StartClient() {
+
+            this.Client.Discovery();
 
             if (!this.SelectedDevice.HasValue) {
-                this.Client.Discovery();
                 this.DeviceList.Clear();
                 foreach (var itm in this.Client.GetFindedDeviceList()) {
                     this.DeviceList.Add(itm);
@@ -222,8 +241,12 @@ namespace BluetoothCopy
 
         }
 
-        private bool CanConnectInputDevice() {
+        private bool CanStartClient() {
             return this.IsClientMode();
+        }
+
+        private void StopClient() {
+            this.Client.Disconnect();
         }
 
         private void Client_ConnectStatusChanged(object sender, AsyncCompletedEventArgs e) {

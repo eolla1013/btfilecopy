@@ -34,7 +34,7 @@ namespace BluetoothCopy
 
             this.Logger = NLog.LogManager.GetLogger("MainWindow");
             this.ProcessTimer = new DispatcherTimer();
-            this.ProcessTimer.Interval = new TimeSpan(0, 0, 1);
+            this.ProcessTimer.Interval = new TimeSpan(0, 0, 2);
             this.ProcessTimer.Tick += ProcessTimer_Run;
         }
 
@@ -47,7 +47,13 @@ namespace BluetoothCopy
                 if (this.ViewModel.StartServerCommand.CanExecute()) {
                     this.ViewModel.StartServerCommand.Execute();
                 }
-
+                if (this.ViewModel.StartClientCommand.CanExecute()) {
+                    var devid = Properties.Settings.Default.AutoConnectDevice;
+                    if (!string.IsNullOrWhiteSpace(devid)) {
+                        this.ViewModel.SelectedDevice = new KeyValuePair<string, string>(devid, "AutoConnectDevice");
+                        this.ViewModel.StartClientCommand.Execute();
+                    }
+                }
                 this.ProcessTimer.Start();
             } else {
                 MessageBox.Show("環境設定の不備があります。ログを確認してください。", this.Title, MessageBoxButton.OK, MessageBoxImage.Error);
@@ -75,7 +81,9 @@ namespace BluetoothCopy
         }
 
         private void ViewModel_ConnectErrored(object sender, System.ComponentModel.AsyncCompletedEventArgs e) {
-            MessageBox.Show("Bluetooth機器への接続に失敗しました。", this.Title, MessageBoxButton.OK, MessageBoxImage.Error);
+            if (!this.ViewModel.IsAutoConnect()) {
+                MessageBox.Show("Bluetooth機器への接続に失敗しました。", this.Title, MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         private void ProcessTimer_Run(object sender, EventArgs e) {

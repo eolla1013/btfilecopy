@@ -58,5 +58,14 @@ namespace BluetoothCopy.Properties {
                 return ((string)(this["ReceiveDirectoryPath"]));
             }
         }
+        
+        [global::System.Configuration.ApplicationScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string AutoConnectDevice {
+            get {
+                return ((string)(this["AutoConnectDevice"]));
+            }
+        }
     }
 }

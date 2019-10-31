@@ -142,6 +142,7 @@ namespace BluetoothCopy
                     System.Threading.Thread.Sleep(1000);
                 } catch (Exception ex) {
                     this.Logger.Error(ex, "データ送信中にエラー発生！");
+                    break;
                 }
             }
         }

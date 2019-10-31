@@ -36,6 +36,8 @@ namespace BluetoothCopy
         private Task ReceiveTask;
         private System.Collections.Concurrent.ConcurrentQueue<BluetoothApplicationTransferData> ReceiveFileQueue;
         private bool RunningFlag;
+        private bool StartingSendTaskFlag;
+        private bool StartingReceiveTaskFlag;
 
         public BluetoothApplicationClient() {
             this.Logger = NLog.LogManager.GetLogger("BluetoothApplicationClient");
@@ -179,6 +181,10 @@ namespace BluetoothCopy
         public async void Connect(string devid) {
             this.Logger.Info("入力デバイスへの接続開始:" + devid);
 
+            this.RunningFlag = true;
+            this.StartingSendTaskFlag = true;
+            this.StartingReceiveTaskFlag = true;
+
             this.SelectedDeviceInfo = (from i in KnownDeviceList where i.Id==devid select i).First();
 
             try {
@@ -195,7 +201,6 @@ namespace BluetoothCopy
                 await Socket.ConnectAsync(RfcommService.ConnectionHostName, RfcommService.ConnectionServiceName);
                 SocketWriter = new DataWriter(Socket.OutputStream);
                 SocketReader = new DataReader(Socket.InputStream);
-                this.RunningFlag = true;
 
                 this.SendTask = Task.Run(() => { this.RunSend(); });
                 this.ReceiveTask = Task.Run(() => { this.RunReceive(); });
@@ -203,6 +208,9 @@ namespace BluetoothCopy
                 this.ConnectStatusChanged?.Invoke(this, new AsyncCompletedEventArgs(null, false, BluetoothApplicationConnectStatus.Connect));
             } catch (Exception ex) {
                 this.Logger.Error(ex,"入力デバイスへの接続失敗");
+                this.RunningFlag = false;
+                this.StartingSendTaskFlag = false;
+                this.StartingReceiveTaskFlag = false;
                 this.ConnectStatusChanged?.Invoke(this, new AsyncCompletedEventArgs(null, false, BluetoothApplicationConnectStatus.Error));
             }
         }
@@ -228,6 +236,7 @@ namespace BluetoothCopy
 
         private void RunSend() {
             this.Logger.Info("データ送信処理開始");
+            this.StartingSendTaskFlag = false;
             while (RunningFlag) {
                 try {
                     BluetoothApplicationTransferData send = null;
@@ -250,6 +259,7 @@ namespace BluetoothCopy
                     System.Threading.Thread.Sleep(1000);
                 } catch (Exception ex) {
                     this.Logger.Error(ex, "データ送信中にエラー発生！");
+                    break;
                 }
             }
         }
@@ -272,7 +282,7 @@ namespace BluetoothCopy
 
         private void RunReceive() {
             this.Logger.Info("データ受信処理開始");
-
+            this.StartingReceiveTaskFlag = false;
             while (this.RunningFlag) {
                 try {
                     //受信データ長
@@ -322,12 +332,28 @@ namespace BluetoothCopy
         }
 
         public bool IsRunning() {
-            return this.RunningFlag;
+            if(this.SendTask==null || this.ReceiveTask == null) {
+                return false;
+            }
+            if(this.SendTask.IsCompleted || this.ReceiveTask.IsCompleted) {
+                return false;
+            }
+            return true;
+        }
+
+        public bool IsStarting() {
+            if(this.StartingSendTaskFlag || this.StartingReceiveTaskFlag) {
+                return true;
+            } else {
+                return false;
+            }
         }
 
         public void Disconnect() {
 
             this.RunningFlag = false;
+            this.StartingSendTaskFlag = false;
+            this.StartingReceiveTaskFlag = false;
 
             if (SocketReader != null) {
                 try {

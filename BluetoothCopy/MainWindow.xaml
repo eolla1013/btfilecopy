@@ -20,7 +20,7 @@
             <ColumnDefinition/>
         </Grid.ColumnDefinitions>
         <Label Content="{Binding RunModeMessage}" Grid.Column="0" Grid.Row="0" HorizontalAlignment="Left" Margin="10,10,0,0" VerticalAlignment="Top" Width="400" Height="40"/>
-        <Button Content="接続" HorizontalAlignment="Left" Grid.Column="0" Grid.Row="0" Margin="540,10,0,0" VerticalAlignment="Top" Width="80" Height="40" Command="{Binding ConnectInputDeviceCommand, Mode=OneWay}"/>
+        <Button Content="接続" HorizontalAlignment="Left" Grid.Column="0" Grid.Row="0" Margin="540,10,0,0" VerticalAlignment="Top" Width="80" Height="40" Command="{Binding StartClientCommand, Mode=OneWay}"/>
         <TextBox Grid.Column="0" Grid.Row="1" HorizontalAlignment="Left" Margin="10,40,5,5" TextWrapping="Wrap" VerticalAlignment="Top" Width="600" Height="140"
                  AcceptsReturn="True" VerticalScrollBarVisibility="Auto" IsReadOnly="True" Text="{Binding SendFileLogText,UpdateSourceTrigger=PropertyChanged}"/>
         <TextBox Grid.Column="0" Grid.Row="2" HorizontalAlignment="Left" Margin="10,40,5,5" TextWrapping="Wrap" VerticalAlignment="Top" Width="600" Height="140"
