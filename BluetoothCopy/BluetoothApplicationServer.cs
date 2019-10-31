@@ -30,23 +30,26 @@ namespace BluetoothCopy
         private Task ReceiveTask;
         private System.Collections.Concurrent.ConcurrentQueue<BluetoothApplicationTransferData> ReceiveFileQueue;
 
+        private bool AcceptingFlag;
         private bool RunningFlag;
 
         public BluetoothApplicationServer() {
             this.Logger = NLog.LogManager.GetLogger("BluetoothApplicationServer");
             this.SendFileQueue = new System.Collections.Concurrent.ConcurrentQueue<BluetoothApplicationTransferData>();
             this.ReceiveFileQueue = new System.Collections.Concurrent.ConcurrentQueue<BluetoothApplicationTransferData>();
+            this.AcceptingFlag = false;
             this.RunningFlag = false;
         }
 
         public async void Start() {
             this.Logger.Info("Bluetooth RFCOMM サーバ起動開始");
-
+            this.RunningFlag = true;
             RfcommProvider = await RfcommServiceProvider.CreateAsync(RfcommServiceId.FromUuid(RfcommServiceUuid));
             SocketListener = new StreamSocketListener();
             SocketListener.ConnectionReceived += OnConnectionReceived;
-            var rfcomm = RfcommProvider.ServiceId.AsString();
+            Socket = null;
 
+            var rfcomm = RfcommProvider.ServiceId.AsString();
             await SocketListener.BindServiceNameAsync(RfcommProvider.ServiceId.AsString(),SocketProtectionLevel.BluetoothEncryptionWithAuthentication);
             InitializeServiceSdpAttributes(RfcommProvider);
 
@@ -87,13 +90,14 @@ namespace BluetoothCopy
                 var rmtdev = await BluetoothDevice.FromHostNameAsync(Socket.Information.RemoteHostName);
                 SocketWriter = new DataWriter(Socket.OutputStream);
                 SocketReader = new DataReader(Socket.InputStream);
-                RunningFlag = true;
 
+                AcceptingFlag = true;
                 this.ReceiveTask = Task.Run(() => { this.RunReceive(); });
                 this.SendTask = Task.Run(() => { this.RunSend(); });
 
                 this.ConnectStatusChanged?.Invoke(this, new AsyncCompletedEventArgs(null, false, BluetoothApplicationConnectStatus.Connect));
             } catch (Exception ex) {
+                this.RunningFlag = false;
                 this.Logger.Error(ex,"クライアント接続中にエラー発生！");
                 this.Logger.Error(ex.ToString());
             }
@@ -121,7 +125,7 @@ namespace BluetoothCopy
 
         private void RunSend() {
             this.Logger.Info("データ送信処理開始");
-            while (RunningFlag) {
+            while (AcceptingFlag) {
                 try {
                     BluetoothApplicationTransferData send = null;
                     var ret = this.SendFileQueue.TryDequeue(out send);
@@ -145,6 +149,7 @@ namespace BluetoothCopy
                     break;
                 }
             }
+            this.AcceptingFlag = false;
         }
 
         public List<string> ReceiveFile() {
@@ -167,17 +172,17 @@ namespace BluetoothCopy
         private void RunReceive() {
             this.Logger.Info("データ受信処理開始");
 
-            while (this.RunningFlag) {
+            while (this.AcceptingFlag) {
                 try {
                     //受信データ長
                     var loadop = SocketReader.LoadAsync(sizeof(uint));
                     while (loadop.Status != Windows.Foundation.AsyncStatus.Completed) {
                         System.Threading.Thread.Sleep(500);
-                        if (!this.RunningFlag) {
+                        if (!this.AcceptingFlag) {
                             break;
                         }
                     }
-                    if (!this.RunningFlag) {
+                    if (!this.AcceptingFlag) {
                         break;
                     }
                     uint size = loadop.GetResults();
@@ -190,11 +195,11 @@ namespace BluetoothCopy
                     loadop = SocketReader.LoadAsync(recvsize);
                     while (loadop.Status != Windows.Foundation.AsyncStatus.Completed) {
                         System.Threading.Thread.Sleep(500);
-                        if (!this.RunningFlag) {
+                        if (!this.AcceptingFlag) {
                             break;
                         }
                     }
-                    if (!this.RunningFlag) {
+                    if (!this.AcceptingFlag) {
                         break;
                     }
                     size = loadop.GetResults();
@@ -212,14 +217,16 @@ namespace BluetoothCopy
                     break;
                 }
             }
+            this.AcceptingFlag = false;
             this.ConnectStatusChanged?.Invoke(this, new AsyncCompletedEventArgs(null, false, BluetoothApplicationConnectStatus.Disconnect));
         }
 
         public void Stop() {
             this.Logger.Info("Bluetooth RFCOMM サーバ終了開始");
 
+            AcceptingFlag = false;
             RunningFlag = false;
-            
+
             Disconnect();
 
             this.Logger.Info("サーバ終了");
@@ -231,9 +238,13 @@ namespace BluetoothCopy
                 SocketListener = null;
             }
 
-            if (RfcommProvider != null) {
-                RfcommProvider.StopAdvertising();
-                RfcommProvider = null;
+            try {
+                if (RfcommProvider != null) {
+                    RfcommProvider.StopAdvertising();
+                    RfcommProvider = null;
+                }
+            } catch (Exception ex) {
+                this.Logger.Info(ex,"サーバ切断中にエラー発生！");
             }
 
             if (SocketListener != null) {

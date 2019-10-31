@@ -107,7 +107,7 @@ namespace BluetoothCopy
         private void TickTimer() {
             if (this.IsClientMode()) {
                 try {
-                    if (!this.Client.IsRunning() && !this.Client.IsStarting()) {
+                    if (this.IsAutoConnect() && !this.Client.IsRunning() && !this.Client.IsStarting()) {
                         this.StopClient();
                         this.StartClient();
                         return;//再接続時はいったん抜けて次のタイミングで実行
@@ -130,6 +130,16 @@ namespace BluetoothCopy
                 }
             }
             if (this.IsServerMode()) {
+                try {
+                    if (!this.Server.IsRunning()) {
+                        this.StopServer();
+                        this.StartServer();
+                        return;//再起動時はいったん抜けて次のタイミングで実行
+                    }
+                } catch (Exception ex) {
+                    this.Logger.Error(ex, "再起動に失敗しました。");
+                    return;
+                }
                 try {
                     var lst=this.Server.SendFile();
                     this.DisplaySendFileName(lst);

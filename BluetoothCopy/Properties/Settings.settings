@@ -3,7 +3,7 @@
   <Profiles />
   <Settings>
     <Setting Name="Mode" Type="System.String" Scope="Application">
-      <Value Profile="(Default)">Client</Value>
+      <Value Profile="(Default)">Server</Value>
     </Setting>
     <Setting Name="ArchiveDirectoryPath" Type="System.String" Scope="Application">
       <Value Profile="(Default)">.\archive</Value>

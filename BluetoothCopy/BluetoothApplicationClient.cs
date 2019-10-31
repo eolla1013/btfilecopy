@@ -181,7 +181,6 @@ namespace BluetoothCopy
         public async void Connect(string devid) {
             this.Logger.Info("入力デバイスへの接続開始:" + devid);
 
-            this.RunningFlag = true;
             this.StartingSendTaskFlag = true;
             this.StartingReceiveTaskFlag = true;
 
@@ -202,6 +201,7 @@ namespace BluetoothCopy
                 SocketWriter = new DataWriter(Socket.OutputStream);
                 SocketReader = new DataReader(Socket.InputStream);
 
+                this.RunningFlag = true;
                 this.SendTask = Task.Run(() => { this.RunSend(); });
                 this.ReceiveTask = Task.Run(() => { this.RunReceive(); });
 
